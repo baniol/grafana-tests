@@ -1,0 +1,73 @@
+version: "3.7"
+services:
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    # links:
+    #   - curity
+    networks:
+      demonetwork:
+        aliases:
+          - prometheus
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana-oss
+    ports:
+      - "3000:3000"
+    environment:
+    #   - GF_PATHS_CONFIG=/etc/grafana/custom.ini
+      - "GF_SECURITY_ADMIN_USER=admin"
+      - "GF_SECURITY_ADMIN_PASSWORD=szapo321"
+    volumes:
+      # - ./config/grafana/custom.ini:/etc/grafana/custom.ini
+      - ./grafana/provisioning/:/etc/grafana/provisioning/
+      # - type: bind
+      #   source: ./config/grafana/dashboard.json
+      #   target: /var/lib/grafana/dashboards/curity/idsvr-dashboard.json
+    links:
+      - prometheus
+    networks:
+      demonetwork:
+        aliases:
+          - grafana
+
+  web:
+    build:
+      context: web
+      args:
+        goPackage: github.com/prometheus-community/prometheus-playground/blackbox-exporter/web
+        goVersion: 1.11
+      cache_from:
+      - golang:1.11
+      - scratch
+    ports:
+    - 2112:2112
+    networks:
+      demonetwork:
+        aliases:
+          - web
+
+  blackbox:
+    image: quay.io/prometheus/blackbox-exporter:latest
+    ports:
+    - 9115:9115
+    command:
+    - --config.file=/etc/blackbox/blackbox.yml
+    volumes:
+    - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml
+    depends_on:
+    - web
+    networks:
+      demonetwork:
+        aliases:
+          - blackbox
+
+networks:
+  demonetwork:
+    name: metrics-demo-net
